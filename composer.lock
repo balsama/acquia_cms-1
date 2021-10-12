@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "c6b604a3fc71bbbaf95ca255fdcfb0a2",
+    "content-hash": "e204d6e7a95dc578a49c594aa117a7f4",
     "packages": [
         {
             "name": "acquia/acsf-contenthub-console",
@@ -12551,6 +12551,7 @@
                     "type": "github"
                 }
             ],
+            "abandoned": true,
             "time": "2020-09-28T06:45:17+00:00"
         },
         {
