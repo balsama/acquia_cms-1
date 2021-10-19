@@ -7,6 +7,7 @@ use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\File\FileSystemInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\Yaml\Yaml;
 
@@ -129,7 +130,7 @@ class ComponentForm extends FormBase {
       '#type' => 'textarea',
       '#rows' => 2,
       '#title' => $this->t('Add css library'),
-      '#description' => $this->t('In case of multiple value, enter one per line., ex: example.js: {}'),
+      '#description' => $this->t('In case of multiple value, enter one per line.'),
       '#states' => [
         'visible' => [
           ':input[name="assets"]' => ['value' => 'new'],
@@ -140,7 +141,7 @@ class ComponentForm extends FormBase {
       '#type' => 'textarea',
       '#rows' => 2,
       '#title' => $this->t('Add js library'),
-      '#description' => $this->t('In case of multiple value, enter one per line., ex: example.css: {}'),
+      '#description' => $this->t('In case of multiple value, enter one per line.'),
       '#states' => [
         'visible' => [
           ':input[name="assets"]' => ['value' => 'new'],
@@ -303,7 +304,7 @@ class ComponentForm extends FormBase {
     }
 
     $component_module_path = $this->moduleHandler->getModule('acquia_cms_component')->getPath();
-    $component_module_path .= '/component/' . $component_machine_name;
+    $component_module_path .= '/components/' . $component_machine_name;
     $component_file_name = $component_module_path . '/' . $component_machine_name . '.component.yml';
     $this->fileSystem->prepareDirectory($component_module_path, FileSystemInterface::CREATE_DIRECTORY);
 
@@ -321,6 +322,8 @@ class ComponentForm extends FormBase {
     $component_yml_content = Yaml::dump($component_content, 2, 2);
     file_put_contents($component_file_name, $component_yml_content);
     $this->messenger()->addStatus($this->t('Component <strong>[:name]</strong> created', [':name' => $component_name]));
+    $url = Url::fromRoute('component.admin_form');
+    $form_state->setRedirectUrl($url);
   }
 
 }

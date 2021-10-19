@@ -1,5 +1,5 @@
-acquia_cms_component.component:
-  path: '/acquia-cms-component/component'
+acquia_cms_component.component_add:
+  path: '/admin/config/development/component/add'
   defaults:
     _title: 'Add component'
     _form: 'Drupal\acquia_cms_component\Form\ComponentForm'

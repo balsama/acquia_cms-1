@@ -1,0 +1,5 @@
+acquia_cms_component.component_add:
+  route_name: acquia_cms_component.component_add
+  title: 'Add component'
+  appears_on:
+    - component.admin_form
