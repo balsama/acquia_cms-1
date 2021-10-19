@@ -8,6 +8,7 @@ use Drupal\Core\File\FileSystemInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Provides a Acquia CMS Component form.
@@ -275,14 +276,7 @@ class ComponentForm extends FormBase {
     $assets = $form_state->getValue('assets');
     $assets_new_css = $form_state->getValue('assets_new_css');
     $assets_new_js = $form_state->getValue('assets_new_js');
-
-    $assets_exist_css = $form_state->getValue('assets_exist_css');
-    $assets_exist_js = $form_state->getValue('assets_exist_js');
     if ($assets == 'new' && empty($assets_new_css) && empty($assets_new_js)) {
-      $form_state->setErrorByName('assets_new_css', $this->t('Missing css library'));
-      $form_state->setErrorByName('assets_new_js', $this->t('Missing js library.'));
-    }
-    if ($assets == 'existing' && empty($assets_exist_css) && empty($assets_exist_js)) {
       $form_state->setErrorByName('assets_new_css', $this->t('Missing css library'));
       $form_state->setErrorByName('assets_new_js', $this->t('Missing js library.'));
     }
@@ -292,14 +286,41 @@ class ComponentForm extends FormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
-    $component_name = $form_state->getValue('id');
+    $assets_css = $assets_js = '';
+    $component_machine_name = $form_state->getValue('id');
+    $component_name = $form_state->getValue('label');
+    $component_desc = $form_state->getValue('description');
+    $component_type = $form_state->getValue('type');
+
+    if ($form_state->getValue('assets') == 'new') {
+      $assets_css = $form_state->getValue('assets_new_css');
+      $assets_js = $form_state->getValue('assets_new_js');
+    }
+
+    if ($form_state->getValue('assets') == 'existing') {
+      $assets_css = $form_state->getValue('assets_exist_css');
+      $assets_js = $form_state->getValue('assets_exist_js');
+    }
+
     $component_module_path = $this->moduleHandler->getModule('acquia_cms_component')->getPath();
-    $component_module_path .= '/component/' . $component_name;
-    $component_file_name = $component_name . '.component.yml';
+    $component_module_path .= '/component/' . $component_machine_name;
+    $component_file_name = $component_module_path . '/' . $component_machine_name . '.component.yml';
     $this->fileSystem->prepareDirectory($component_module_path, FileSystemInterface::CREATE_DIRECTORY);
-    file_put_contents($component_file_name, "Hello here:");
-    dump($form_state->getValues());
-    die;
+
+    $component_content = [
+      'name' => $component_name,
+      'description' => $component_desc,
+      'type' => $component_type,
+    ];
+    if ($assets_js) {
+      $component_content['js'] = [$assets_js => []];
+    }
+    if ($assets_css) {
+      $component_content['css'] = [$assets_css => []];
+    }
+    $component_yml_content = Yaml::dump($component_content, 2, 2);
+    file_put_contents($component_file_name, $component_yml_content);
+    $this->messenger()->addStatus($this->t('Component <strong>[:name]</strong> created', [':name' => $component_name]));
   }
 
 }
