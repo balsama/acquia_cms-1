@@ -146,8 +146,11 @@ class ComponentForm extends FormBase {
         ],
       ],
     ];
-    $form['assets_exist_css'] = $this->getExistingJsLibOptions();
-    $form['assets_exist_js'] = $this->getExistingCssLibOptions();
+    $libraries = $this->calcLibraries();
+    $libraries_js = $libraries['js'] ?? [];
+    $libraries_css = $libraries['css'] ?? [];
+    $form['assets_exist_css'] = $this->getExistingJsLibOptions($libraries_js);
+    $form['assets_exist_js'] = $this->getExistingCssLibOptions($libraries_css);
     $form['actions'] = [
       '#type' => 'actions',
     ];
@@ -160,15 +163,50 @@ class ComponentForm extends FormBase {
   }
 
   /**
+   * Get js and css libraries.
+   */
+  private function calcLibraries(): array {
+    $libraries = [];
+    $component_list = $this->componentDiscovery->getComponents();
+    foreach ($component_list as $components) {
+      foreach ($components as $name => $component) {
+        if ($component['js']) {
+          if (!empty(_component_build_library($component['js'], $component['subpath']))) {
+            $libraries['js'][$name] = $name;
+          }
+        }
+        if ($component['css']) {
+          if (!empty(_component_build_library($component['css'], $component['subpath']))) {
+            $libraries['css'][$name] = $name;
+          }
+        }
+      }
+    }
+    return $libraries;
+  }
+
+  /**
    * Generate option for existing javascript libraries.
    */
-  private function getExistingJsLibOptions(): array {
+  private function getExistingJsLibOptions(array $libraries_js): array {
+    if (!empty($libraries_js)) {
+      return [
+        '#type' => 'select',
+        '#multiple' => TRUE,
+        '#options' => $libraries_js,
+        '#title' => $this->t('Select js library'),
+        '#description' => $this->t('In case of multiple value, select multiple.'),
+        '#states' => [
+          'visible' => [
+            ':input[name="assets"]' => ['value' => 'existing'],
+          ],
+        ],
+      ];
+    }
     return [
-      '#type' => 'select',
-      '#multiple' => TRUE,
-      '#options' => [],
-      '#title' => $this->t('Select js library'),
-      '#description' => $this->t('In case of multiple value, select multiple.'),
+      '#type' => 'item',
+      '#title' => $this->t('Js library'),
+      '#markup' => $this->t('No existing js library found'),
       '#states' => [
         'visible' => [
           ':input[name="assets"]' => ['value' => 'existing'],
@@ -180,13 +218,25 @@ class ComponentForm extends FormBase {
   /**
    * Generate option for existing css libraries.
    */
-  private function getExistingCssLibOptions(): array {
+  private function getExistingCssLibOptions(array $libraries_css): array {
+    if (!empty($libraries_css)) {
+      return [
+        '#type' => 'select',
+        '#multiple' => TRUE,
+        '#options' => $libraries_css,
+        '#title' => $this->t('Select css library'),
+        '#description' => $this->t('In case of multiple value, select multiple.'),
+        '#states' => [
+          'visible' => [
+            ':input[name="assets"]' => ['value' => 'existing'],
+          ],
+        ],
+      ];
+    }
     return [
-      '#type' => 'select',
-      '#multiple' => TRUE,
-      '#options' => [],
-      '#title' => $this->t('Select js library'),
-      '#description' => $this->t('In case of multiple value, select multiple.'),
+      '#type' => 'item',
+      '#title' => $this->t('Css library'),
+      '#markup' => $this->t('No existing css library found'),
       '#states' => [
         'visible' => [
           ':input[name="assets"]' => ['value' => 'existing'],
