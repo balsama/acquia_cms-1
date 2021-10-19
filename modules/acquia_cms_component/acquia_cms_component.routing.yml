@@ -1,0 +1,7 @@
+acquia_cms_component.component:
+  path: '/acquia-cms-component/component'
+  defaults:
+    _title: 'Add component'
+    _form: 'Drupal\acquia_cms_component\Form\ComponentForm'
+  requirements:
+    _permission: 'administer site configuration'
