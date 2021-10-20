@@ -117,42 +117,32 @@ class ComponentForm extends FormBase {
         'plugin' => $this->t('Plugin'),
       ],
     ];
-    $form['assets'] = [
-      '#type' => 'select',
-      '#required' => TRUE,
-      '#title' => $this->t('Asset libraries'),
-      '#options' => [
-        'new' => $this->t('Add new libraries'),
-        'existing' => $this->t('Use existing libraries'),
-      ],
-    ];
-    $form['assets_new_css'] = [
+    $form['assets_js'] = [
       '#type' => 'textarea',
       '#rows' => 2,
-      '#title' => $this->t('Add css library'),
-      '#description' => $this->t('In case of multiple value, enter one per line.'),
+      '#title' => $this->t('JS'),
+      '#description' => $this->t('External js libraries, in case of multiple, enter one value per line.'),
       '#states' => [
         'visible' => [
-          ':input[name="assets"]' => ['value' => 'new'],
+          ':input[name="type"]' => ['!value' => ''],
         ],
       ],
     ];
-    $form['assets_new_js'] = [
+    $form['assets_css'] = [
       '#type' => 'textarea',
       '#rows' => 2,
-      '#title' => $this->t('Add js library'),
-      '#description' => $this->t('In case of multiple value, enter one per line.'),
+      '#title' => $this->t('CSS'),
+      '#description' => $this->t('External css libraries, in case of multiple, enter one value per line.'),
       '#states' => [
         'visible' => [
-          ':input[name="assets"]' => ['value' => 'new'],
+          ':input[name="type"]' => ['!value' => ''],
         ],
       ],
     ];
-    $libraries = $this->calcLibraries();
-    $libraries_js = $libraries['js'] ?? [];
-    $libraries_css = $libraries['css'] ?? [];
-    $form['assets_exist_css'] = $this->getExistingJsLibOptions($libraries_js);
-    $form['assets_exist_js'] = $this->getExistingCssLibOptions($libraries_css);
+    $libraries_components = $this->calcLibraries();
+    if (!empty($libraries_components)) {
+      $form['dependencies'] = $this->getLibraryDependencies($libraries_components);
+    }
     $form['actions'] = [
       '#type' => 'actions',
     ];
@@ -165,21 +155,16 @@ class ComponentForm extends FormBase {
   }
 
   /**
-   * Get js and css libraries.
+   * Get library type components.
    */
   private function calcLibraries(): array {
     $libraries = [];
     $component_list = $this->componentDiscovery->getComponents();
     foreach ($component_list as $components) {
       foreach ($components as $name => $component) {
-        if ($component['js']) {
+        if ($component['type'] == 'library') {
           if (!empty(_component_build_library($component['js'], $component['subpath']))) {
-            $libraries['js'][$name] = $name;
-          }
-        }
-        if ($component['css']) {
-          if (!empty(_component_build_library($component['css'], $component['subpath']))) {
-            $libraries['css'][$name] = $name;
+            $libraries[$name] = $name;
           }
         }
       }
@@ -188,60 +173,18 @@ class ComponentForm extends FormBase {
   }
 
   /**
-   * Generate option for existing javascript libraries.
+   * Generate option for existing dependencies as libraries.
    */
-  private function getExistingJsLibOptions(array $libraries_js): array {
-    if (!empty($libraries_js)) {
-      return [
-        '#type' => 'select',
-        '#multiple' => TRUE,
-        '#options' => $libraries_js,
-        '#title' => $this->t('Select js library'),
-        '#description' => $this->t('In case of multiple value, select multiple.'),
-        '#states' => [
-          'visible' => [
-            ':input[name="assets"]' => ['value' => 'existing'],
-          ],
-        ],
-      ];
-    }
+  private function getLibraryDependencies(array $libraries_components): array {
     return [
-      '#type' => 'item',
-      '#title' => $this->t('Js library'),
-      '#markup' => $this->t('No existing js library found'),
+      '#type' => 'select',
+      '#multiple' => TRUE,
+      '#options' => $libraries_components,
+      '#title' => $this->t('Dependencies'),
+      '#description' => $this->t('In case of multiple, select multiple.'),
       '#states' => [
         'visible' => [
-          ':input[name="assets"]' => ['value' => 'existing'],
-        ],
-      ],
-    ];
-  }
-
-  /**
-   * Generate option for existing css libraries.
-   */
-  private function getExistingCssLibOptions(array $libraries_css): array {
-    if (!empty($libraries_css)) {
-      return [
-        '#type' => 'select',
-        '#multiple' => TRUE,
-        '#options' => $libraries_css,
-        '#title' => $this->t('Select css library'),
-        '#description' => $this->t('In case of multiple value, select multiple.'),
-        '#states' => [
-          'visible' => [
-            ':input[name="assets"]' => ['value' => 'existing'],
-          ],
-        ],
-      ];
-    }
-    return [
-      '#type' => 'item',
-      '#title' => $this->t('Css library'),
-      '#markup' => $this->t('No existing css library found'),
-      '#states' => [
-        'visible' => [
-          ':input[name="assets"]' => ['value' => 'existing'],
+          ':input[name="type"]' => ['!value' => ''],
         ],
       ],
     ];
@@ -274,12 +217,13 @@ class ComponentForm extends FormBase {
    * {@inheritdoc}
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
-    $assets = $form_state->getValue('assets');
-    $assets_new_css = $form_state->getValue('assets_new_css');
-    $assets_new_js = $form_state->getValue('assets_new_js');
-    if ($assets == 'new' && empty($assets_new_css) && empty($assets_new_js)) {
-      $form_state->setErrorByName('assets_new_css', $this->t('Missing css library'));
-      $form_state->setErrorByName('assets_new_js', $this->t('Missing js library.'));
+    $type = $form_state->getValue('type');
+    $assets_css = $form_state->getValue('assets_css');
+    $assets_js = $form_state->getValue('assets_js');
+    $dependencies = $form_state->getValue('dependencies');
+    if ($type && empty($assets_css) && empty($assets_js) && empty($dependencies)) {
+      $form_state->setErrorByName('assets_css', $this->t('Missing css library'));
+      $form_state->setErrorByName('assets_js', $this->t('Missing js library.'));
     }
   }
 
@@ -288,19 +232,15 @@ class ComponentForm extends FormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $assets_css = $assets_js = '';
-    $component_machine_name = $form_state->getValue('id');
-    $component_name = $form_state->getValue('label');
-    $component_desc = $form_state->getValue('description');
     $component_type = $form_state->getValue('type');
+    $component_name = $form_state->getValue('label');
+    $component_machine_name = $form_state->getValue('id');
+    $component_desc = $form_state->getValue('description');
+    $component_dependencies = $form_state->getValue('dependencies');
 
-    if ($form_state->getValue('assets') == 'new') {
-      $assets_css = $form_state->getValue('assets_new_css');
-      $assets_js = $form_state->getValue('assets_new_js');
-    }
-
-    if ($form_state->getValue('assets') == 'existing') {
-      $assets_css = $form_state->getValue('assets_exist_css');
-      $assets_js = $form_state->getValue('assets_exist_js');
+    if ($component_type) {
+      $assets_css = $form_state->getValue('assets_css');
+      $assets_js = $form_state->getValue('assets_js');
     }
 
     $component_module_path = $this->moduleHandler->getModule('acquia_cms_component')->getPath();
@@ -313,11 +253,33 @@ class ComponentForm extends FormBase {
       'description' => $component_desc,
       'type' => $component_type,
     ];
+    // Add js library assets.
     if ($assets_js) {
-      $component_content['js'] = [$assets_js => []];
+      $js_lib = explode(PHP_EOL, $assets_js);
+      foreach ($js_lib as $lib) {
+        $lib = trim(str_replace('\r', '', $lib));
+        $component_content['js'][$lib] = [
+          'type' => 'external',
+          'minified' => TRUE,
+          'crossorigin' => 'anonymous',
+        ];
+      }
     }
+    // Add css library assets.
     if ($assets_css) {
-      $component_content['css'] = [$assets_css => []];
+      $css_lib = explode(PHP_EOL, $assets_css);
+      foreach ($css_lib as $lib) {
+        $lib = trim(str_replace('\r', '', $lib));
+        $component_content['css'][$lib] = [
+          'type' => 'external',
+          'minified' => TRUE,
+          'crossorigin' => 'anonymous',
+        ];
+      }
+    }
+
+    if ($component_dependencies) {
+      $component_content['dependencies'] = [$component_dependencies];
     }
     $component_yml_content = Yaml::dump($component_content, 2, 2);
     file_put_contents($component_file_name, $component_yml_content);
