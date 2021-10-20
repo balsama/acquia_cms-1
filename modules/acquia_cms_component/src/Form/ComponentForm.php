@@ -7,6 +7,7 @@ use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\File\FileSystemInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Plugin\CachedDiscoveryClearerInterface;
 use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\Yaml\Yaml;
@@ -38,6 +39,13 @@ class ComponentForm extends FormBase {
   protected $componentDiscovery;
 
   /**
+   * A plugin cache clear instance.
+   *
+   * @var \Drupal\Core\Plugin\CachedDiscoveryClearerInterface
+   */
+  protected $pluginCacheClearer;
+
+  /**
    * Class constructor.
    *
    * @param \Drupal\Core\File\FileSystemInterface $file_system
@@ -46,25 +54,31 @@ class ComponentForm extends FormBase {
    *   The module handler.
    * @param \Drupal\component\ComponentDiscovery $component_discovery
    *   The component discovery service.
+   * @param \Drupal\Core\Plugin\CachedDiscoveryClearerInterface $plugin_cache_clearer
+   *   A plugin cache clear instance.
    */
   public function __construct(
     FileSystemInterface $file_system,
     ModuleHandlerInterface $module_handler,
-    ComponentDiscovery $component_discovery
+    ComponentDiscovery $component_discovery,
+    CachedDiscoveryClearerInterface $plugin_cache_clearer
   ) {
     $this->fileSystem = $file_system;
     $this->moduleHandler = $module_handler;
     $this->componentDiscovery = $component_discovery;
+    $this->pluginCacheClearer = $plugin_cache_clearer;
   }
 
   /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container) {
+
     return new static(
       $container->get('file_system'),
       $container->get('module_handler'),
-      $container->get('component.discovery')
+      $container->get('component.discovery'),
+      $container->get('plugin.cache_clearer'),
     );
   }
 
@@ -121,6 +135,9 @@ class ComponentForm extends FormBase {
       '#type' => 'textarea',
       '#rows' => 2,
       '#title' => $this->t('JS'),
+      '#attributes' => [
+        'placeholder' => '//cdnjs.cloudflare.com/ajax/libs/angular.js/1.8.2/angular.min.js',
+      ],
       '#description' => $this->t('External js libraries, in case of multiple, enter one value per line.'),
       '#states' => [
         'visible' => [
@@ -132,6 +149,9 @@ class ComponentForm extends FormBase {
       '#type' => 'textarea',
       '#rows' => 2,
       '#title' => $this->t('CSS'),
+      '#attributes' => [
+        'placeholder' => '//cdnjs.cloudflare.com/ajax/libs/angular.js/1.8.2/angular-csp.css',
+      ],
       '#description' => $this->t('External css libraries, in case of multiple, enter one value per line.'),
       '#states' => [
         'visible' => [
@@ -225,6 +245,26 @@ class ComponentForm extends FormBase {
       $form_state->setErrorByName('assets_css', $this->t('Missing css library'));
       $form_state->setErrorByName('assets_js', $this->t('Missing js library.'));
     }
+    // Let's validate that the js library is provided in expected format.
+    if ($assets_js) {
+      $js_lib = explode(PHP_EOL, $assets_js);
+      foreach ($js_lib as $lib) {
+        $lib = trim(str_replace('\r', '', $lib));
+        if (!preg_match('/^(\/\/)(.*)\.js$/', $lib)) {
+          $form_state->setErrorByName('assets_js', $this->t('Invalid js library, path should start with //.'));
+        }
+      }
+    }
+    // Let's validate that the css library is provided in expected format.
+    if ($assets_css) {
+      $css_lib = explode(PHP_EOL, $assets_css);
+      foreach ($css_lib as $lib) {
+        $lib = trim(str_replace('\r', '', $lib));
+        if (!preg_match('/^(\/\/)(.*)\.css$/', $lib)) {
+          $form_state->setErrorByName('assets_css', $this->t('Invalid css library, path should start with //.'));
+        }
+      }
+    }
   }
 
   /**
@@ -277,12 +317,19 @@ class ComponentForm extends FormBase {
         ];
       }
     }
-
+    // Add dependencies.
     if ($component_dependencies) {
-      $component_content['dependencies'] = [$component_dependencies];
+      foreach ($component_dependencies as $dependency) {
+        $component_content['dependencies'][] = "component/$dependency";
+      }
     }
     $component_yml_content = Yaml::dump($component_content, 2, 2);
     file_put_contents($component_file_name, $component_yml_content);
+
+    // Clear plugin cache so that newly created block components
+    // are available for placement in block layout.
+    $this->pluginCacheClearer->clearCachedDefinitions();
+
     $this->messenger()->addStatus($this->t('Component <strong>[:name]</strong> created', [':name' => $component_name]));
     $url = Url::fromRoute('component.admin_form');
     $form_state->setRedirectUrl($url);
