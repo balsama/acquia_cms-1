@@ -23,7 +23,7 @@ if (AcquiaDrupalEnvironmentDetector::isAhEnv()) {
     // Temporary workaround to override the default MySQL wait_timeout setting.
     $default_settings['default']['default'] = [
       'init_commands' => [
-        'wait_timeout' => "SET SESSION wait_timeout=3600",
+        'wait_timeout' => "SET SESSION wait_timeout=10800",
       ],
     ];
     $databases = array_merge_recursive($databases, $default_settings);
