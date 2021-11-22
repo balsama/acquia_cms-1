@@ -24,6 +24,8 @@ if (AcquiaDrupalEnvironmentDetector::isAhEnv()) {
     $default_settings['default']['default'] = [
       'init_commands' => [
         'wait_timeout' => "SET SESSION wait_timeout=10800",
+        'interactive_timeout' => "SET SESSION interactive_timeout=10800",
+        'max_allowed_packet' => "SET SESSION max_allowed_packet=256M",
       ],
     ];
     $databases = array_merge_recursive($databases, $default_settings);
