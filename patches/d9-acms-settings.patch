@@ -21,12 +21,9 @@ if (AcquiaDrupalEnvironmentDetector::isAhEnv()) {
       require "/var/www/site-php/$ah_group/$safe_site_name-settings.inc";
     }
     // Temporary workaround to override the default MySQL wait_timeout setting.
-    $default_settings['default']['default'] = [
-      'init_commands' => [
-        'wait_timeout' => "SET SESSION wait_timeout=10800, interactive_timeout=10800, max_allowed_packet=256M",
-      ],
+    $databases['default']['default']['init_commands'] = [
+      'wait_timeout' => "SET SESSION wait_timeout=10800, interactive_timeout=10800, SET SESSION max_allowed_packet=256M",
     ];
-    $databases = array_merge_recursive($databases, $default_settings);
     // Only call this function on the cloud, not on a local environment.
     if (function_exists('acquia_hosting_db_choose_active')) {
       acquia_hosting_db_choose_active();
